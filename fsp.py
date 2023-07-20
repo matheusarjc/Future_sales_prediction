@@ -3,6 +3,10 @@ import numpy as np
 import random
 import datetime
 import matplotlib.pyplot as plt
+from sklearn.preprocessing import LabelEncoder, StandardScaler
+from sklearn.model_selection import train_test_split
+
+pd.set_option('display.max_columns', None)
 
 numb_registers = 1000
 
@@ -31,7 +35,7 @@ for _ in range(numb_registers):
     quantity.append(random.randint(1, 800))
     discount_code.append(random.choice(discount_codes))
 
-#Dataframe
+# Dataframe
 df = pd.DataFrame({
     "Date": date,
     "Product": product,
@@ -40,12 +44,6 @@ df = pd.DataFrame({
     "Quantity": quantity,
     "Discount_Code": discount_code
 })
-
-col_numb = df.select_dtypes(include=[np.number]).columns.tolist()
-
-print(df.head())
-print(df[col_numb].describe())
-print(df.nunique())
 
 # Sales
 plt.figure(figsize=(10, 6))
@@ -80,18 +78,49 @@ plt.show()
 # Dataframe Copy
 df_preprocessed = df.copy()
 
-numeric_columns = df_preprocessed.select_dtypes(include=[np.number]).columns
-df_preprocessed[numeric_columns] = df_preprocessed[numeric_columns].fillna(df_preprocessed[numeric_columns].mean())
-
-# Feature Engineering
-df_preprocessed = pd.get_dummies(df_preprocessed, columns=["Product", "Category"], drop_first=True)
+# LabelEncoder para coluna "Category"
+label_encoder = LabelEncoder()
+df_preprocessed["Category_Encoded"] = label_encoder.fit_transform(df_preprocessed["Category"])
 
 # New Date
-df_preprocessed["Month"] = df_preprocessed["Date"].dt.month
+df_preprocessed["Date"] = pd.to_datetime(df_preprocessed["Date"])  # Convert to datetime if not already done
+df_preprocessed["Day"] = df_preprocessed["Date"].dt.day
 df_preprocessed["DayOfWeek"] = df_preprocessed["Date"].dt.dayofweek
+df_preprocessed["Month"] = df_preprocessed["Date"].dt.month
+df_preprocessed["Year"] = df_preprocessed["Date"].dt.year
 
-df_preprocessed["TotalSales"] = df_preprocessed["Price"] * df_preprocessed["Quantity"]
-
+# DISCOUNT
+df_preprocessed["Discount_Applied"] = df_preprocessed["Discount_Code"].apply(lambda x: 1 if x != "None" else 0)
 df_preprocessed.drop(columns=["Date", "Discount_Code"], inplace=True)
+
+# Feature Engineering (Engenharia de Recursos)
+df_preprocessed = pd.get_dummies(df_preprocessed, columns=["Product", "Category"], drop_first=True)
+
+scaler = StandardScaler()
+df_preprocessed[["Price", "Quantity"]] = scaler.fit_transform(df_preprocessed[["Price", "Quantity"]])
+
+# TARGET
+y = df_preprocessed["Quantity"]
+df_preprocessed.drop(columns=["Quantity"], inplace=True)
+
+# SEASON
+def get_season(month):
+    if 3 <= month <= 5:
+        return "Spring"
+    elif 6 <= month <= 8:
+        return "Summer"
+    elif 9 <= month <= 11:
+        return "Autumn"
+    else:
+        return "Winter"
+
+df_preprocessed["Season"] = df_preprocessed["Month"].apply(get_season)
+
+# DAY OF WEEK AS CATEGORY
+df_preprocessed["DayOfWeek"] = df_preprocessed["DayOfWeek"].astype("category")
+
+# Média de vendas por categoria
+category_mean_sales = df.groupby("Category")["Quantity"].mean()
+print(category_mean_sales)
 
 print(df_preprocessed.head())
