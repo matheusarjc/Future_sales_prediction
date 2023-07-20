@@ -1,4 +1,4 @@
-# Future Sales Prediction
+<h1 align="center">Future Sales Prediction</h1>
 
 This project was developed with the target to understand that predicting the future sales of some product may help a business manage the manufacturing and advertising cost of the product.
 
