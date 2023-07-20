@@ -65,3 +65,33 @@ plt.title("Sales over time")
 plt.xticks(rotation=45)
 plt.grid(True)
 plt.show()
+
+# Discount codes
+discount_count = df["Discount_Code"].value_counts()
+plt.figure(figsize=(8, 6))
+plt.bar(discount_count.index, discount_count.values, color='lightgreen')
+plt.xlabel("Discount Code")
+plt.ylabel("Occurrences number")
+plt.title("Discount code counting")
+plt.xticks(rotation=45)
+plt.grid(True)
+plt.show()
+
+# Dataframe Copy
+df_preprocessed = df.copy()
+
+numeric_columns = df_preprocessed.select_dtypes(include=[np.number]).columns
+df_preprocessed[numeric_columns] = df_preprocessed[numeric_columns].fillna(df_preprocessed[numeric_columns].mean())
+
+# Feature Engineering
+df_preprocessed = pd.get_dummies(df_preprocessed, columns=["Product", "Category"], drop_first=True)
+
+# New Date
+df_preprocessed["Month"] = df_preprocessed["Date"].dt.month
+df_preprocessed["DayOfWeek"] = df_preprocessed["Date"].dt.dayofweek
+
+df_preprocessed["TotalSales"] = df_preprocessed["Price"] * df_preprocessed["Quantity"]
+
+df_preprocessed.drop(columns=["Date", "Discount_Code"], inplace=True)
+
+print(df_preprocessed.head())
