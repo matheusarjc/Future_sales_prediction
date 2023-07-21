@@ -1,126 +1,61 @@
 import pandas as pd
 import numpy as np
-import random
-import datetime
-import matplotlib.pyplot as plt
-from sklearn.preprocessing import LabelEncoder, StandardScaler
-from sklearn.model_selection import train_test_split
+from random import choice
 
-pd.set_option('display.max_columns', None)
+# Define the categories, products, and seasons
+categories = ["Male", "Female", "Child"]
+products = ["Shirt", "Blouse", "Pants", "Shorts", "Coat", "Accessories"]
+seasons = ["Summer", "Autumn", "Winter", "Spring"]
 
-numb_registers = 1000
+# Generate dates for 2 years
+dates = pd.date_range(start="2021-01-01", end="2022-12-31")
 
-date_start = datetime.datetime(2020, 1, 1)
-date_end = datetime.datetime(2022, 12, 31)
-date_list = [date_start + datetime.timedelta(days=random.randint(0, (date_end - date_start).days)) for _ in range(numb_registers)]
+data = []
 
-products = ["T-shirt", "Pants", "Dress", "Blouse", "Jacket", "Shorts", "Skirt", "Coat", "Shirt", "Tissue"]
+# Generate data for each day
+for date in dates:
+    # Assume each product has a chance of being sold each day
+    for product in products:
+        for category in categories:
+            # Generate the quantity sold (assume a normal distribution with mean 100 and std deviation 20)
+            quantity_sold = int(np.random.normal(100, 20))
 
-categories = ["Male", "Female", "Kids", "Accessories"]
+            # Assume the price is normally distributed, but depends on the product
+            if product == "Accessories":
+                price = int(np.random.normal(20, 3))
+            elif product in ["Shirt", "Blouse"]:
+                price = int(np.random.normal(50, 10))
+            elif product in ["Pants", "Shorts"]:
+                price = int(np.random.normal(75, 15))
+            else:  # Coat
+                price = int(np.random.normal(100, 25))
 
-discount_codes = ["DESC10", "FREEDELIV", "DESC20", "DESC30", "DESC50", "DESC5"]
+            # Assume promotion happens 20% of the time
+            promotion = np.random.rand() < 0.2
 
-date = []
-product = []
-category = []
-price = []
-quantity = []
-discount_code = []
+            # Define the season based on the month
+            month = date.month
+            if 3 <= month <= 5:
+                season = "Spring"
+            elif 6 <= month <= 8:
+                season = "Summer"
+            elif 9 <= month <= 11:
+                season = "Autumn"
+            else:
+                season = "Winter"
 
-for _ in range(numb_registers):
-    date.append(random.choice(date_list))
-    product.append(random.choice(products))
-    category.append(random.choice(categories))
-    price.append(round(random.uniform(20, 200), 2))
-    quantity.append(random.randint(1, 800))
-    discount_code.append(random.choice(discount_codes))
+            # Assume a special event happens 10% of the time
+            special_event = np.random.rand() < 0.1
 
-# Dataframe
-df = pd.DataFrame({
-    "Date": date,
-    "Product": product,
-    "Category": category,
-    "Price": price,
-    "Quantity": quantity,
-    "Discount_Code": discount_code
-})
+            # Add the row of data
+            data.append([date, product, category, quantity_sold, price, promotion, season, special_event])
 
-# Sales
-plt.figure(figsize=(10, 6))
-plt.hist(df["Quantity"], bins=20, edgecolor="k", alpha=0.7)
-plt.xlabel("Sold quantity")
-plt.ylabel("Frequency")
-plt.title("Sale's distribution")
-plt.show()
+# Create a DataFrame
+df = pd.DataFrame(data, columns=["Date", "Product", "Category", "Quantity Sold", "Price", "Promotion", "Season", "Special Event"])
 
-# Sales x Date
-sales_per_date = df.groupby("Date")["Quantity"].sum()
-plt.figure(figsize=(12, 6))
-plt.plot(sales_per_date.index, sales_per_date.values, marker='o', linestyle='-')
-plt.xlabel("Date")
-plt.ylabel("Sold Quantity")
-plt.title("Sales over time")
-plt.xticks(rotation=45)
-plt.grid(True)
-plt.show()
+# Convert 'Promotion' and 'Special Event' columns to 'Yes'/'No'
+df["Promotion"] = df["Promotion"].map({True: "Yes", False: "No"})
+df["Special Event"] = df["Special Event"].map({True: "Yes", False: "No"})
 
-# Discount codes
-discount_count = df["Discount_Code"].value_counts()
-plt.figure(figsize=(8, 6))
-plt.bar(discount_count.index, discount_count.values, color='lightgreen')
-plt.xlabel("Discount Code")
-plt.ylabel("Occurrences number")
-plt.title("Discount code counting")
-plt.xticks(rotation=45)
-plt.grid(True)
-plt.show()
-
-# Dataframe Copy
-df_preprocessed = df.copy()
-
-# LabelEncoder para coluna "Category"
-label_encoder = LabelEncoder()
-df_preprocessed["Category_Encoded"] = label_encoder.fit_transform(df_preprocessed["Category"])
-
-# New Date
-df_preprocessed["Date"] = pd.to_datetime(df_preprocessed["Date"])  # Convert to datetime if not already done
-df_preprocessed["Day"] = df_preprocessed["Date"].dt.day
-df_preprocessed["DayOfWeek"] = df_preprocessed["Date"].dt.dayofweek
-df_preprocessed["Month"] = df_preprocessed["Date"].dt.month
-df_preprocessed["Year"] = df_preprocessed["Date"].dt.year
-
-# DISCOUNT
-df_preprocessed["Discount_Applied"] = df_preprocessed["Discount_Code"].apply(lambda x: 1 if x != "None" else 0)
-df_preprocessed.drop(columns=["Date", "Discount_Code"], inplace=True)
-
-# Feature Engineering (Engenharia de Recursos)
-df_preprocessed = pd.get_dummies(df_preprocessed, columns=["Product", "Category"], drop_first=True)
-
-scaler = StandardScaler()
-df_preprocessed[["Price", "Quantity"]] = scaler.fit_transform(df_preprocessed[["Price", "Quantity"]])
-
-# TARGET
-y = df_preprocessed["Quantity"]
-df_preprocessed.drop(columns=["Quantity"], inplace=True)
-
-# SEASON
-def get_season(month):
-    if 3 <= month <= 5:
-        return "Spring"
-    elif 6 <= month <= 8:
-        return "Summer"
-    elif 9 <= month <= 11:
-        return "Autumn"
-    else:
-        return "Winter"
-
-df_preprocessed["Season"] = df_preprocessed["Month"].apply(get_season)
-
-# DAY OF WEEK AS CATEGORY
-df_preprocessed["DayOfWeek"] = df_preprocessed["DayOfWeek"].astype("category")
-
-# Média de vendas por categoria
-category_mean_sales = df.groupby("Category")["Quantity"].mean()
-print(category_mean_sales)
-
-print(df_preprocessed.head())
+# Save the data to an Excel file
+df.to_excel('sales_MAC_Clothes.xlsx', index=False)
