@@ -1,76 +1,66 @@
 import pandas as pd
-import numpy as np
-from random import choice
+import random
+from faker import Faker
+from random import randrange
+from datetime import timedelta
 
-pd.set_option('display.max_columns', None)
+fake = Faker()
 
-# Define the categories, products, and seasons
-categories = ["Male", "Female", "Child"]
-products = ["Shirt", "Blouse", "Pants", "Shorts", "Coat", "Accessories"]
-seasons = ["Summer", "Autumn", "Winter", "Spring"]
+# Define produtos e categorias
+produtos = {
+    "Camisas": 50.0,
+    "Blusas": 30.0,
+    "Calças": 75.0,
+    "Bermudas": 35.0,
+    "Acessórios": 20.0,
+    "Vestidos": 100.0
+}
+categorias = ["Masculino", "Feminino", "Infantil"]
 
-# DATES
-dates = pd.date_range(start="2021-01-01", end="2022-12-31")
+# Define funções auxiliares
+def gerar_produto(categoria):
+    if categoria == "Masculino":
+        produtos_disponiveis = {produto: preco for produto, preco in produtos.items() if produto != "Vestidos"}
+        return random.choice(list(produtos_disponiveis.items()))
+    else:
+        return random.choice(list(produtos.items()))
 
-# STOCK FOR EACH PRODUCT
-initial_stock = 200
-stock = {product: initial_stock for product in products}
+def gerar_tamanho(produto):
+    if produto == "Acessórios":
+        return None
+    else:
+        return random.choice(["P", "M", "G"])
 
-data = []
+def gerar_data_venda(start_date, end_date):
+    return start_date + timedelta(days=randrange((end_date - start_date).days))
 
-# GENERATING DATA FOR EACH DAY
-for date in dates:
-    # THESE DATAS ARE RANDOM CREATED
-    available_products = [product for product in products if stock[product] > 0]
-    if not available_products:  # IF NO PRODUCTS ARE AVAILABLE, CONTINUE NEXT DAY
-        continue
+# Gera DataFrame
+def gerar_dados(n):
+    start_date = pd.to_datetime('2021-01-01')
+    end_date = pd.to_datetime('2023-01-01')
+    dados = []
+    for _ in range(n):
+        data_venda = gerar_data_venda(start_date, end_date)
+        categoria = random.choice(categorias)
+        produto, preco_base = gerar_produto(categoria)
+        tamanho = gerar_tamanho(produto)
+        evento_especial = fake.boolean(chance_of_getting_true=20) # 20% de chance de ser True
+        promocao = fake.boolean(chance_of_getting_true=30) # 30% de chance de ser True
+        if evento_especial:
+            preco = round(preco_base * 0.75, 2) # 25% de desconto
+        elif promocao:
+            preco = round(preco_base * 0.90, 2) # 10% de desconto
+        else:
+            preco = preco_base
+        quantidade = random.randint(1, 140)
+        estacao = random.choice(["Primavera", "Verão", "Outono", "Inverno"])
+        dados.append([produto, categoria, tamanho, preco, data_venda, quantidade, evento_especial, promocao, estacao])
 
-    selling_products = np.random.choice(available_products, size=np.random.randint(1, len(available_products) + 1), replace=False)
-    for product in selling_products:
-        for category in categories:
-            # If no stock left, continue to next product
-            if stock[product] == 0:
-                continue
+    df = pd.DataFrame(dados, columns=["Produto", "Categoria", "Tamanho", "Preço", "Data da Venda", "Quantidade", "Evento Especial", "Promoção", "Estação do Ano"])
+    return df
 
-            # GENERATING THE QUANTITY SOLD
-            quantity_sold = np.random.randint(0, min(21, stock[product] + 1))  # To allow for 0 sales
-            stock[product] -= quantity_sold
+# Gera 1000 linhas de dados
+df = gerar_dados(250)
 
-            # PRICE WITH CONDITIONS
-            if product == "Accessories":
-                price = int(np.random.normal(20, 3))
-            elif product in ["Shirt", "Blouse"]:
-                price = int(np.random.normal(50, 10))
-            elif product in ["Pants", "Shorts"]:
-                price = int(np.random.normal(75, 15))
-            else:  # Coat
-                price = int(np.random.normal(100, 25))
-
-            # CONDITION FOR PROMOTION
-            promotion = "Yes" if (np.random.rand() < 0.2 and quantity_sold > 0) else "No"
-
-            # SEASON
-            month = date.month
-            if 3 <= month <= 5:
-                season = "Spring"
-            elif 6 <= month <= 8:
-                season = "Summer"
-            elif 9 <= month <= 11:
-                season = "Autumn"
-            else:
-                season = "Winter"
-
-            # SPECIAL EVENT LIKE COMMEMORATIVE DATES
-            special_event = "Yes" if np.random.rand() < 0.1 else "No"
-
-            # Add the row of data
-            data.append([date, product, category, quantity_sold, price, promotion, season, special_event, stock[product]])
-
-    # RESTOCK MONTHLY
-    if date.day == 1:
-        stock = {product: initial_stock for product in products}
-
-# Create a DataFrame
-df = pd.DataFrame(data, columns=["Date", "Product", "Category", "Quantity Sold", "Price", "Promotion", "Season", "Special Event", "Stock"])
-
-df.to_excel('sales_MAC_Clothes.xlsx', index=False)
+# Escreve os dados no Excel
+df.to_excel("dados_MAC_Clothes.xlsx", index=False)
